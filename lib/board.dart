@@ -1,7 +1,33 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(TabbedApp());
+}
+
+class Task {
+  final String progressStage;
+  final String taskTitles;
+  final Color flagColor;
+  final String linkedTask;
+  final String assignTo;
+  final String reportTo;
+  final String startDate;
+  final String endDate;
+  final String description;
+
+  Task({
+    required this.progressStage,
+    required this.taskTitles,
+    required this.flagColor,
+    required this.linkedTask,
+    required this.assignTo,
+    required this.reportTo,
+    required this.startDate,
+    required this.endDate,
+    required this.description,
+  });
 }
 
 class TabbedApp extends StatefulWidget {
@@ -9,7 +35,8 @@ class TabbedApp extends StatefulWidget {
   _TabbedAppState createState() => _TabbedAppState();
 }
 
-class _TabbedAppState extends State<TabbedApp> with SingleTickerProviderStateMixin {
+class _TabbedAppState extends State<TabbedApp>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<String> progressStages = [
     "ToDo",
@@ -20,10 +47,17 @@ class _TabbedAppState extends State<TabbedApp> with SingleTickerProviderStateMix
   ];
 
   List<String> taskTitles = [
-    "FRONTEND", "BACKEND", "Card 3", "Card 4", "Card 5", "Card 6", "Card 7", "Card 8", "Card 9", "Card 10",
+    "FRONTEND",
+    "BACKEND",
+    "Card 3",
+    "Card 4",
+    "Card 5",
+    "Card 6",
+    "Card 7",
+    "Card 8",
+    "Card 9",
+    "Card 10",
   ];
-
-  get cardTitles => null;
 
   List<Tab> getTabs() {
     return progressStages.map((name) => Tab(text: name)).toList();
@@ -32,7 +66,12 @@ class _TabbedAppState extends State<TabbedApp> with SingleTickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: progressStages.length, vsync: this);
+    _tabController = TabController(
+      length: progressStages.length,
+      vsync: this,
+    );
+
+    fetchData(); // Call the method to fetch data from the API
   }
 
   @override
@@ -41,30 +80,60 @@ class _TabbedAppState extends State<TabbedApp> with SingleTickerProviderStateMix
     super.dispose();
   }
 
-  void updateTabCount(int count) {
-    setState(() {
-      progressStages = List<String>.generate(count, (index) => "Tab ${index + 1}");
-      _tabController = TabController(length: progressStages.length, vsync: this);
-    });
+  Color _getColorFromHex(String hexColor) {
+    hexColor = hexColor.replaceAll('#', '');
+    if (hexColor.length == 6) {
+      hexColor = 'FF' + hexColor;
+    }
+    return Color(int.parse(hexColor, radix: 16));
   }
 
-  void displayCardTitle(String title) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(title),
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
+  Future<void> fetchData() async {
+    try {
+      final response = await http.get(Uri.parse('http://192.168.1.9:4000/api/project'));
+      final responseData = json.decode(response.body);
+      if (response.statusCode == 200) {
+        List<Task> fetchedTasks = [];
+        for (var taskData in responseData) {
+          final progressStage = taskData['progressStage'];
+          final title = taskData['title'];
+          final flagColor = _getColorFromHex(taskData['flagColor']);
+          final linkedTask = taskData['linkedTask'];
+          final assignTo = taskData['assignTo'];
+          final reportTo = taskData['reportTo'];
+          final startDate = taskData['startDate'];
+          final endDate = taskData['endDate'];
+          final description = taskData['description'];
+
+          Task task = Task(
+            progressStage: progressStage,
+            taskTitles: title,
+            flagColor: flagColor,
+            linkedTask: linkedTask,
+            assignTo: assignTo,
+            reportTo: reportTo,
+            startDate: startDate,
+            endDate: endDate,
+            description: description,
+          );
+          fetchedTasks.add(task);
+        }
+        setState(() {
+          taskTitles = fetchedTasks.map((task) => task.taskTitles).toList();
+        });
+      } else if (response.statusCode == 400) {
+        print('Bad');
+      } else if (response.statusCode == 401) {
+        print('Request is not authorized');
+      } else {
+        print('Request failed with status: ${response.statusCode}.');
+        final errorMessage = responseData['error'];
+        print(errorMessage);
+      }
+    } catch (e) {
+      // Handle the exception here
+      print('Exception occurred: $e');
+    }
   }
 
   @override
@@ -90,9 +159,9 @@ class _TabbedAppState extends State<TabbedApp> with SingleTickerProviderStateMix
         body: TabBarView(
           controller: _tabController,
           children: List.generate(
-            progressStages.length,//PROGRESS STAGES
+            progressStages.length, //PROGRESS STAGES
                 (index) => ListView.builder(
-              itemCount: taskTitles.length,//TASKS
+              itemCount: taskTitles.length, //TASKS
               itemBuilder: (context, cardIndex) {
                 return GestureDetector(
                   onTap: () {
@@ -101,11 +170,12 @@ class _TabbedAppState extends State<TabbedApp> with SingleTickerProviderStateMix
                       builder: (BuildContext context) {
                         return AlertDialog(
                           shape: RoundedRectangleBorder(
-                              side: BorderSide(
-                                color: Colors.indigo, //<-- SEE HERE
-                              ),
-                              borderRadius: BorderRadius.circular(10.0)),
-                          backgroundColor:  Colors.indigoAccent[100],
+                            side: BorderSide(
+                              color: Colors.indigo, //<-- SEE HERE
+                            ),
+                            borderRadius: BorderRadius.circular(10.0),
+                          ),
+                          backgroundColor: Colors.indigoAccent[100],
                           title: Text("FONT END DESIGN"),
                           content: DefaultTextStyle(
                             style: TextStyle(fontWeight: FontWeight.bold),
@@ -132,7 +202,9 @@ class _TabbedAppState extends State<TabbedApp> with SingleTickerProviderStateMix
                                   SizedBox(height: 8.0),
                                   Text("End Date: "),
                                   SizedBox(height: 8.0),
-                                  Text("Description: Inside the app bar create 5 tab bar elements using React JS framework."),
+                                  Text(
+                                    "Description: Inside the app bar create 5 tab bar elements using React JS framework.",
+                                  ),
                                 ],
                               ),
                             ),
@@ -142,11 +214,13 @@ class _TabbedAppState extends State<TabbedApp> with SingleTickerProviderStateMix
                               onPressed: () {
                                 Navigator.of(context).pop();
                               },
-                              child: const Text('Close', style: TextStyle(color: Colors.black),),
+                              child: const Text(
+                                'Close',
+                                style: TextStyle(color: Colors.black),
+                              ),
                             ),
                           ],
                         );
-
                       },
                     );
                   },
@@ -158,20 +232,27 @@ class _TabbedAppState extends State<TabbedApp> with SingleTickerProviderStateMix
                       borderRadius: BorderRadius.circular(20.0),
                     ),
                     elevation: 2, // Adjust the elevation as desired
-                    margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Adjust the margin as desired
+                    margin: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ), // Adjust the margin as desired
                     child: ListTile(
-                      contentPadding: EdgeInsets.all(16), // Adjust the content padding as desired
+                      contentPadding:
+                      EdgeInsets.all(16), // Adjust the content padding as desired
                       leading: CircleAvatar(
-                        backgroundImage: AssetImage('assets/profile_image.png'), // Replace with your image
-                    ),
-                    title: Text(
-                      taskTitles[cardIndex],
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20,),
-                       ),
+                        backgroundImage: AssetImage(
+                            'assets/profile_image.png'), // Replace with your image
+                      ),
+                      title: Text(
+                        taskTitles[cardIndex],
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
                     ),
                   ),
                 );
-
               },
             ),
           ),
